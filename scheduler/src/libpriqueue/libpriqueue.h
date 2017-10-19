@@ -6,12 +6,15 @@
 
 /**
   Priqueue Data Structure
+
+  In retrospect, backing this with an array makes removing pieces from the middle
+  of it quite difficult/resource expensive in c.
 */
 typedef struct _priqueue_t
 {
   int (*comp)(const void *, const void *);
   int length;
-  void *arr[];
+  void **arr;
 
 } priqueue_t;
 

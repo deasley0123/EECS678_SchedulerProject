@@ -33,12 +33,43 @@ void priqueue_init(priqueue_t *q, int(*comparer)(const void *, const void *))
  */
 int priqueue_offer(priqueue_t *q, void *ptr)
 {
+
 	if( 0 == q->length ) {
-		q->arr = {ptr};
+		q->length = 1;
+		q->arr[0] = ptr;
 		return 0;
 	}
-	
-	return -1;
+
+	int newLength = q->length+1;
+	int next = 0;
+	int ret = -1;
+	char done = 0;
+	void **tempArr = malloc(sizeof(void *[newLength]));
+
+	for(int i = 0; i < q->length; i++){
+		if(!done){
+			if(q->comp(ptr, q->arr[i]) > 0){
+				tempArr[next] = ptr;
+				ret = next;
+				next++;
+
+				done = 1;
+			}
+		}
+
+		tempArr[next] = q->arr[i];
+		next++;
+	}
+
+	if(!done){
+		tempArr[next] = ptr;
+		ret = next;
+	}
+
+	q->length = newLength;
+	free(q->arr);
+	q->arr = tempArr;
+	return ret;
 }
 
 
@@ -52,7 +83,11 @@ int priqueue_offer(priqueue_t *q, void *ptr)
  */
 void *priqueue_peek(priqueue_t *q)
 {
-	return NULL;
+	if(0 == q->length){
+		return NULL;
+	}
+
+	return q->arr[0];
 }
 
 
@@ -66,7 +101,28 @@ void *priqueue_peek(priqueue_t *q)
  */
 void *priqueue_poll(priqueue_t *q)
 {
-	return NULL;
+	void *tempPtr;
+
+	if (0 == q->length) {
+		return NULL;
+
+	} else if(1 == q->length){
+		tempPtr = q->arr[0];
+		free(q->arr);
+		q->length = 0;
+		return tempPtr;
+	}
+
+	void **tempArr = malloc(sizeof(void *[q->length -1]));
+	for(int i = 0; i < q->length -1; i++){
+		tempArr[i] = q->arr[i+1];
+	}
+
+	tempPtr = q->arr[0];
+	free(q->arr);
+	q->length = q->length -1;
+	q->arr = tempArr;
+	return tempPtr;
 }
 
 
@@ -81,7 +137,11 @@ void *priqueue_poll(priqueue_t *q)
  */
 void *priqueue_at(priqueue_t *q, int index)
 {
-	return NULL;
+	if(index <= q->length){
+		return NULL;
+	}
+
+	return q->arr[index];
 }
 
 
@@ -96,7 +156,37 @@ void *priqueue_at(priqueue_t *q, int index)
  */
 int priqueue_remove(priqueue_t *q, void *ptr)
 {
-	return 0;
+	int ret = 0;
+	int next = 0;
+
+	for(int i = 0 ; i < q->length; i++){
+		if(q->arr[i] == ptr){
+			q->arr[i] = NULL;
+			ret++;
+		}
+	}
+
+	if(ret > 0){
+		if(q->length - ret != 0){
+			void **tempArr = malloc(sizeof(void *[q->length - ret]));
+
+			for(int i = 0; i < q->length; i++){ 		//Not the most efficient way to do this
+				if(q->arr[i] != NULL){
+					tempArr[next] = q->arr[i];
+					next++;
+				}
+			}
+
+			q->length = next;
+			free(q->arr);
+			q->arr = tempArr;
+		}else {
+			q->length = 0;
+			free(q->arr);
+		}
+	}
+
+	return ret;
 }
 
 
@@ -111,7 +201,33 @@ int priqueue_remove(priqueue_t *q, void *ptr)
  */
 void *priqueue_remove_at(priqueue_t *q, int index)
 {
-	return 0;
+	void *tempPtr;
+
+	if(index >= q->length){
+		return NULL;
+	} else if(1 == q->length){
+		tempPtr = q->arr[0];
+		free(q->arr);
+		q->length = 0;
+		return tempPtr;
+	}
+
+	void **tempArr = malloc(sizeof(void *[q->length -1]));
+	int next = 0;
+
+	for(int i = 0; i < q->length; i++){
+		if(i != index){
+			tempArr[next] = q->arr[i];
+			next++;
+		} else {
+			tempPtr = q->arr[i];
+		}
+	}
+
+	q->length = next;
+	free(q->arr);
+	q->arr = tempArr;
+	return tempPtr;
 }
 
 
@@ -123,7 +239,7 @@ void *priqueue_remove_at(priqueue_t *q, int index)
  */
 int priqueue_size(priqueue_t *q)
 {
-	return 0;
+	return q->length;
 }
 
 
@@ -134,5 +250,6 @@ int priqueue_size(priqueue_t *q)
  */
 void priqueue_destroy(priqueue_t *q)
 {
-
+	free(q->arr);
+	free(q);
 }
