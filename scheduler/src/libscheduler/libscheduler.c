@@ -27,15 +27,17 @@ int *available_cores;
 
 typedef struct _job_t
 {
-	int job_number;		// ID of job
-	int priority;		// Priority
-	int running_time;	// How long the job runs
-	int arrival_time;	// Time of arrival
-	int latency_time;	// Latency of the job
-	int time_alive;		// How long the has been running
-	int end_time;		// What time the job finished
-	int core_id;		// Core id
-	int finished;		// Whether the job finished or not
+	int job_id;				// ID of the job
+	int priority;			// Priority of the job
+	int core_id;			// ID of the core running the job
+	int burst_time;		// How long the job runs for
+
+	int arrival_time;	// Arrival time of the job
+	int latency_time;	// How long it took to schedule the job
+	int running_time;	// How long the job has been running for
+	int end_time;			// When the job finished
+	int finished;			// If the job has finished
+
 } job_t;
 // Comparator functions
 
@@ -65,8 +67,8 @@ int SJF_comparator(const void *thing1, const void *thing2) {
 	} else if (that->core_id < 0 && this -> core_id >= 0) {
 		return -1;
 	} else {
-		int this_life = this->running_time - this->time_alive;
-		int that_life = that->running_time - that->time_alive;
+		int this_life = this->running_time - this->running_time;
+		int that_life = that->running_time - that->running_time;
 
 		if (this_life == that_life)
 			return (this->arrival_time - that->arrival_time);
@@ -80,8 +82,8 @@ int PSJF_comparator(const void *thing1, const void *thing2) {
 	this = (job_t*)thing1;
 	that = (job_t*)thing2;
 
-	int this_life = this->running_time - this->time_alive;
-	int that_life = that->running_time - that->time_alive;
+	int this_life = this->running_time - this->running_time;
+	int that_life = that->running_time - that->running_time;
 
 	if (this_life == that_life)
 		return (this->arrival_time - that->arrival_time);
@@ -120,13 +122,6 @@ int PPRI_comparator(const void *thing1, const void *thing2) {
 
 int RR_comparator(const void *thing1, const void *thing2) {
 	return -1;
-}
-
-void update_time(int time) {
-	job_t *job;
-	for (int i=0; i<priqueue_size(queue); i++) {
-		job = (job_t *)priqueue_at(queue, i);
-	}
 }
 
 /**
@@ -201,18 +196,19 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
 {
 	// Create and initialize the job
 	job_t* job = (job_t *) malloc(sizeof(job_t));
-	job->job_number = job_number;
+	job->job_id = job_number;
 	job->priority = priority;
-	job->running_time = running_time;
+	job->core_id = -1;
+	job->burst_time = running_time;
 	job->arrival_time = time;
 	job->latency_time = 0;
-	job->time_alive = 0;
-	job->core_id = -1;
+	job->running_time = 0;
+	job->end_time = 0;
 	job->finished = 0;
 
-	int index = priqueue_offer(queue, job);
+	priqueue_offer(queue, job);
 
-	return job->core_id;
+	return -1;
 }
 
 
@@ -269,7 +265,7 @@ float scheduler_average_waiting_time()
 
 	for (int i=0; i<priqueue_size(queue); i++) {
 		job = (job_t *)priqueue_at(queue, i);
-		sum += (job->end_time - job->arrival_time) - job->running_time;
+		sum += job->end_time - job->arrival_time - job->burst_time;
 	}
 
 	return (1.0*sum)/priqueue_size(queue);
@@ -326,11 +322,9 @@ float scheduler_average_response_time()
 */
 void scheduler_clean_up()
 {
-	job_t *job;
 	while (priqueue_size(queue) > 0) {
-		job = (job_t *)priqueue_poll(queue);
+		(job_t *)priqueue_poll(queue);
 	}
-	job = NULL;
 	free(queue);
 	free(available_cores);
 }
