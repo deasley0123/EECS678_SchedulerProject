@@ -28,13 +28,15 @@ int *available_cores;
 typedef struct _job_t
 {
 	int job_number;		// ID of job
-	int arrival_time;	// Time of arrival
-	int running_time;	// How long the job runs
-	int time_alive;		// How long the has been running
 	int priority;		// Priority
+	int running_time;	// How long the job runs
+	int arrival_time;	// Time of arrival
+	int latency_time	// Latency of the job
+	int time_alive;		// How long the has been running
+	int end_time;		// What time the job finished
 	int core_id;		// Core id
+	int finished;		// Whether the job finished or not
 } job_t;
-
 // Comparator functions
 
 int FCFC_comparator(const void *thing1, const void *thing2) {
@@ -193,11 +195,13 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
 	// Create and initialize the job
 	job_t* job = (job_t *) malloc(sizeof(job_t));
 	job->job_number = job_number;
-	job->arrival_time = time;
-	job->running_time = running_time;
-	job->time_alive = 0;
 	job->priority = priority;
+	job->running_time = running_time;
+	job->arrival_time = time;
+	job->latency_time = 0;
+	job->time_alive = 0;
 	job->core_id = -1;
+	job->finished = 0;
 
 	int index = priqueue_offer(queue, job);
 
@@ -253,7 +257,15 @@ int scheduler_quantum_expired(int core_id, int time)
  */
 float scheduler_average_waiting_time()
 {
-	return 0.0;
+	job_t *job;
+	int sum = 0;
+
+	for (int i=0; i<priqueue_size(queue); i++) {
+		job = (job_t *)priqueue_at(queue, i);
+		sum += (job->end_time - job->arrival_time) - running_time;
+	}
+
+	return (1.0*sum)/priqueue_size(queue);
 }
 
 
@@ -266,7 +278,15 @@ float scheduler_average_waiting_time()
  */
 float scheduler_average_turnaround_time()
 {
-	return 0.0;
+	job_t *job;
+	int sum = 0;
+
+	for (int i=0; i<priqueue_size(queue); i++) {
+		job = (job_t *)priqueue_at(queue, i);
+		sum += job->end_time - job->arrival_time;
+	}
+
+	return (1.0*sum)/priqueue_size(queue);
 }
 
 
@@ -279,7 +299,15 @@ float scheduler_average_turnaround_time()
  */
 float scheduler_average_response_time()
 {
-	return 0.0;
+	job_t *job;
+	int sum = 0;
+
+	for (int i=0; i<priqueue_size(queue); i++) {
+		job = (job_t *)priqueue_at(queue, i);
+		sum += job->latency_time;
+	}
+
+	return (1.0*sum)/priqueue_size(queue);
 }
 
 
@@ -291,7 +319,13 @@ float scheduler_average_response_time()
 */
 void scheduler_clean_up()
 {
-
+	job_t *job;
+	while (priqueue_size(queue) > 0) {
+		job = (job_t *)priqueue_poll(queue);
+	}
+	job = NULL;
+	free(queue);
+	free(available_cores);
 }
 
 
