@@ -67,7 +67,7 @@ $(OBJDIR)%.o: $(SRCDIR)%.c $(HFILES)
 
 # Build a testing harness for the priority queue
 queuetest: $(OBJINNERDIRS) queuetest-inner
-queuetest-inner: ./src/queuetest.c ./src/libpriqueue/libpriqueue.o
+queuetest-inner: ./src/queuetest.c ./src/libpriqueue/libpriqueue.c
 	$(CC) $(CFLAGS) $^ -o queuetest $(LIBLIST)
 
 # Build and run the program

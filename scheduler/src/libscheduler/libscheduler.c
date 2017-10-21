@@ -31,7 +31,7 @@ typedef struct _job_t
 	int priority;		// Priority
 	int running_time;	// How long the job runs
 	int arrival_time;	// Time of arrival
-	int latency_time	// Latency of the job
+	int latency_time;	// Latency of the job
 	int time_alive;		// How long the has been running
 	int end_time;		// What time the job finished
 	int core_id;		// Core id
@@ -39,7 +39,7 @@ typedef struct _job_t
 } job_t;
 // Comparator functions
 
-int FCFC_comparator(const void *thing1, const void *thing2) {
+int FCFS_comparator(const void *thing1, const void *thing2) {
 	job_t *this;
 	job_t *that;
 	this = (job_t*)thing1;
@@ -68,7 +68,7 @@ int SJF_comparator(const void *thing1, const void *thing2) {
 		int this_life = this->running_time - this->time_alive;
 		int that_life = that->running_time - that->time_alive;
 
-		if (this_life = that_life)
+		if (this_life == that_life)
 			return (this->arrival_time - that->arrival_time);
 		return (this_life-that_life);
 	}
@@ -83,7 +83,7 @@ int PSJF_comparator(const void *thing1, const void *thing2) {
 	int this_life = this->running_time - this->time_alive;
 	int that_life = that->running_time - that->time_alive;
 
-	if (this_life = that_life)
+	if (this_life == that_life)
 		return (this->arrival_time - that->arrival_time);
 	return (this_life-that_life);
 }
@@ -120,6 +120,13 @@ int PPRI_comparator(const void *thing1, const void *thing2) {
 
 int RR_comparator(const void *thing1, const void *thing2) {
 	return -1;
+}
+
+void update_time(int time) {
+	job_t *job;
+	for (int i=0; i<priqueue_size(queue); i++) {
+		job = (job_t *)priqueue_at(queue, i);
+	}
 }
 
 /**
@@ -262,7 +269,7 @@ float scheduler_average_waiting_time()
 
 	for (int i=0; i<priqueue_size(queue); i++) {
 		job = (job_t *)priqueue_at(queue, i);
-		sum += (job->end_time - job->arrival_time) - running_time;
+		sum += (job->end_time - job->arrival_time) - job->running_time;
 	}
 
 	return (1.0*sum)/priqueue_size(queue);
