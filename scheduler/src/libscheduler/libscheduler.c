@@ -27,13 +27,98 @@ int *available_cores;
 
 typedef struct _job_t
 {
-	int job_number;
-	int time;
-	int running_time;
-	int priority;
-	int core_id;
+	int job_number;		// ID of job
+	int arrival_time;	// Time of arrival
+	int running_time;	// How long the job runs
+	int time_alive;		// How long the has been running
+	int priority;		// Priority
+	int core_id;		// Core id
 } job_t;
 
+// Comparator functions
+
+int FCFC_comparator(const void *thing1, const void *thing2) {
+	job_t *this;
+	job_t *that;
+	this = (job_t*)thing1;
+	that = (job_t*)thing2;
+
+	if (this->core_id < 0 && that->core_id >= 0) {
+		return 1;
+	} else if (that->core_id < 0 && this -> core_id >= 0) {
+		return -1;
+	} else {
+		return (this->arrival_time - that->arrival_time);
+	}
+}
+
+int SJF_comparator(const void *thing1, const void *thing2) {
+	job_t *this;
+	job_t *that;
+	this = (job_t*)thing1;
+	that = (job_t*)thing2;
+
+	if (this->core_id < 0 && that->core_id >= 0) {
+		return 1;
+	} else if (that->core_id < 0 && this -> core_id >= 0) {
+		return -1;
+	} else {
+		int this_life = this->running_time - this->time_alive;
+		int that_life = that->running_time - that->time_alive;
+
+		if (this_life = that_life)
+			return (this->arrival_time - that->arrival_time);
+		return (this_life-that_life);
+	}
+}
+
+int PSJF_comparator(const void *thing1, const void *thing2) {
+	job_t *this;
+	job_t *that;
+	this = (job_t*)thing1;
+	that = (job_t*)thing2;
+
+	int this_life = this->running_time - this->time_alive;
+	int that_life = that->running_time - that->time_alive;
+
+	if (this_life = that_life)
+		return (this->arrival_time - that->arrival_time);
+	return (this_life-that_life);
+}
+
+int PRI_comparator(const void *thing1, const void *thing2) {
+	job_t *this;
+	job_t *that;
+	this = (job_t*)thing1;
+	that = (job_t*)thing2;
+
+	if (this->core_id < 0 && that->core_id >= 0) {
+		return 1;
+	} else if (that->core_id < 0 && this -> core_id >= 0) {
+		return -1;
+	} else {
+		if (this->priority == that->priority)
+			return (this->arrival_time - that->arrival_time);
+		else
+			return (this->priority - that->priority);
+	}
+}
+
+int PPRI_comparator(const void *thing1, const void *thing2) {
+	job_t *this;
+	job_t *that;
+	this = (job_t*)thing1;
+	that = (job_t*)thing2;
+
+	if (this->priority == that->priority)
+		return (this->arrival_time - that->arrival_time);
+	else
+		return (this->priority - that->priority);
+}
+
+int RR_comparator(const void *thing1, const void *thing2) {
+	return -1;
+}
 
 /**
   Initalizes the scheduler.
@@ -108,8 +193,9 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
 	// Create and initialize the job
 	job_t* job = (job_t *) malloc(sizeof(job_t));
 	job->job_number = job_number;
-	job->time = time;
+	job->arrival_time = time;
 	job->running_time = running_time;
+	job->time_alive = 0;
 	job->priority = priority;
 	job->core_id = -1;
 
