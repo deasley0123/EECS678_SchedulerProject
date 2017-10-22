@@ -36,6 +36,7 @@ typedef struct _job_t
 	int latency_time;	// How long it took to schedule the job
 	int running_time;	// How long the job has been running for
 	int end_time;			// When the job finished
+
 	int finished;			// If the job has finished
 
 } job_t;
@@ -124,6 +125,104 @@ int RR_comparator(const void *thing1, const void *thing2) {
 	return -1;
 }
 
+void tick(int time) {
+	job_t *job;
+
+	for (int i=0; i<priqueue_size(queue); i++) {
+		job = (job_t*)priqueue_at(queue, i);
+		if (job->core_id >= 0) {
+			job->running_time = time - job->arrival_time;
+			if (job->latency_time < 0)
+				job->latency_time = time - job->arrival_time;
+		} else if (job->end_time == time) {
+			job->running_time = time - job->arrival_time;
+		}
+	}
+}
+
+int get_lowest_idle_core() {
+	for (int i=0; i<num_cores; i++) {
+		if (available_cores[i] < 0)
+			return i;
+	}
+	return -1;
+}
+
+void set_next_job_nonpreemptive(int time) {
+	job_t *job = NULL;
+	int job_found;
+	if (priqueue_size(queue) > 0) {
+		int idle_core = get_lowest_idle_core();
+
+		while (idle_core != -1) {
+			job_found = 0;
+			for (int i=0; i<priqueue_size(queue); i++) {
+				job = (job_t*)priqueue_at(queue, i);
+				if (!job->finished && job->core_id < 0) {
+					job_found = 1;
+					break;
+				}
+			}
+			if (job_found) {
+				job->core_id = idle_core;
+				available_cores[idle_core] = job->job_id;
+				idle_core = get_lowest_idle_core();
+			} else {
+				break;
+			}
+		}
+	}
+}
+
+void set_next_job_preemptive(int time) {
+	job_t *job = NULL;
+	if (priqueue_size(queue) > 0) {
+		for (int i=0; i<priqueue_size(queue); i++) {
+			job = (job_t*)priqueue_at(queue, i);
+			if (!job->finished && job->core_id < 0) {
+				int idle_core = get_lowest_idle_core();
+				if (idle_core != -1) {
+					job->core_id = idle_core;
+					available_cores[idle_core] = job->job_id;
+				} else { // Find a job to be replaced
+					job_t *running_job;
+					for (int i=priqueue_size(queue)-1; i >-1; i++) {
+						running_job = (job_t*)priqueue_at(queue, i);
+						if (running_job->core_id > -1
+							&& queue->comp(job, running_job) <= 0) {
+							break;
+						}
+					}
+					if (running_job != NULL) {
+						int core_id = running_job->core_id;
+						running_job->running_time = time - running_job->arrival_time;
+						running_job->core_id = -1;
+						if (running_job->running_time == 0)
+							running_job->latency_time = -1;
+						job->core_id = core_id;
+						available_cores[core_id] = job->job_id;
+					}
+				}
+			}
+		}
+	}
+}
+
+void set_next_job(int time) {
+	switch(current_scheme) {
+		case FCFS:
+		case PRI:
+		case SJF:
+		case RR:
+			set_next_job_nonpreemptive(time);
+			break;
+		case PPRI:
+		case PSJF:
+			set_next_job_preemptive(time);
+			break;
+	}
+}
+
 /**
   Initalizes the scheduler.
 
@@ -144,6 +243,8 @@ void scheduler_start_up(int cores, scheme_t scheme)
 	for (int i=0; i<num_cores; i++) {
 		available_cores[i] = -1;
 	}
+
+	queue = (priqueue_t *)malloc(sizeof(priqueue_t));
 
 	current_scheme = scheme;
 
@@ -201,14 +302,20 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
 	job->core_id = -1;
 	job->burst_time = running_time;
 	job->arrival_time = time;
-	job->latency_time = 0;
+	job->latency_time = -1; // Set to -1 to allow for 0 latency
 	job->running_time = 0;
 	job->end_time = 0;
 	job->finished = 0;
 
 	priqueue_offer(queue, job);
 
-	return -1;
+	// Update cores
+	set_next_job(time);
+
+	// Update time
+	tick(time);
+
+	return job->core_id;
 }
 
 
@@ -228,7 +335,33 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
  */
 int scheduler_job_finished(int core_id, int job_number, int time)
 {
-	return -1;
+	job_t *job;
+
+	// Find the job
+	for (int i=0; i<priqueue_size(queue); i++) {
+		job_t *temp_job = priqueue_at(queue, i);
+		if (temp_job->job_id == job_number) {
+			job = temp_job;
+			break;
+		}
+	}
+
+	job->end_time = time;
+	job->finished = 1;
+	job->priority = 0;
+
+	available_cores[core_id] = -1;
+	job->core_id = -1;
+
+	set_next_job(time);
+
+	job->finished = 0;
+
+	tick(time);
+
+	job->finished = 1;
+
+	return available_cores[core_id];
 }
 
 
